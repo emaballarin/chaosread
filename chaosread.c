@@ -27,6 +27,8 @@
 #include "config.h"
 
 #define CHAOS_SIZE	64
+#define CHAOS_BUF_SAMPLES	512
+#define USB_TIMEOUT_MS	10000
 
 #define CHAOS_VENDOR	0x1d50
 #define CHAOS_PRODUCT	0x60c6
@@ -49,7 +51,7 @@ chaoskey_match(libusb_device *dev, char *match_serial)
 	ret = libusb_get_device_descriptor(dev, &desc);
 	if (ret < 0) {
 		fprintf(stderr, "failed to get device descriptor: %s\n", libusb_strerror(ret));
-		return 0;
+		return NULL;
 	}
 
 	if (desc.idVendor != CHAOS_VENDOR)
@@ -68,7 +70,7 @@ chaoskey_match(libusb_device *dev, char *match_serial)
 	}
 
 	match_len = strlen(match_serial);
-	device_serial = malloc(match_len + 2);
+	device_serial = malloc(match_len + 1);
 
 	if (!device_serial) {
 		fprintf(stderr, "malloc failed\n");
@@ -94,7 +96,7 @@ chaoskey_match(libusb_device *dev, char *match_serial)
 out:
 	if (handle)
 		libusb_close(handle);
-	return 0;
+	return NULL;
 }
 
 static struct chaoskey *
@@ -110,7 +112,7 @@ chaoskey_open(char *serial)
 	if (!ck)
 		goto out;
 	ret = libusb_init(&ck->ctx);
-	if (ret ) {
+	if (ret) {
 		fprintf(stderr, "libusb_init failed: %s\n", libusb_strerror(ret));
 		goto out;
 	}
@@ -135,9 +137,9 @@ chaoskey_open(char *serial)
 
 	if (!ck->handle) {
 		if (serial)
-			fprintf (stderr, "No chaoskey matching %s\n", serial);
+			fprintf(stderr, "No chaoskey matching %s\n", serial);
 		else
-			fprintf (stderr, "No chaoskey\n");
+			fprintf(stderr, "No chaoskey\n");
 		goto out;
 	}
 
@@ -189,7 +191,7 @@ chaoskey_read(struct chaoskey *ck, int endpoint, void *buffer, int len)
 		int	ret;
 		int	transferred;
 
-		ret = libusb_bulk_transfer(ck->handle, endpoint, buf, len, &transferred, 10000);
+		ret = libusb_bulk_transfer(ck->handle, endpoint, buf, len, &transferred, USB_TIMEOUT_MS);
 		if (ret) {
 			if (total)
 				return total;
@@ -235,7 +237,7 @@ int
 main (int argc, char **argv)
 {
 	struct chaoskey	*ck;
-	uint16_t	buf[512];
+	uint16_t	buf[CHAOS_BUF_SAMPLES];
 	int	got;
 	int	c;
 	char	*serial = NULL;
@@ -254,13 +256,18 @@ main (int argc, char **argv)
 			break;
 		case 'l':
 			length_string = optarg;
+			errno = 0;
 			length = strtoul(length_string, &length_end, 10);
+			if (errno == ERANGE || length_end == length_string) {
+				fprintf(stderr, "Invalid length: %s\n", length_string);
+				usage(argv[0], 1);
+			}
 			if (!strcasecmp(length_end, "k"))
-				length *= 1024;
+				length *= 1024UL;
 			else if (!strcasecmp(length_end, "m"))
-				length *= 1024 * 1024;
+				length *= 1024UL * 1024UL;
 			else if (!strcasecmp(length_end, "g"))
-				length *= 1024 * 1024 * 1024;
+				length *= 1024UL * 1024UL * 1024UL;
 			else if (strlen(length_end))
 				usage(argv[0], 1);
 			break;
