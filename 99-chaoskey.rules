@@ -1,0 +1,5 @@
+# Rule for ChaosKey hardware random number generator
+ATTRS{idVendor}=="1d50", ATTRS{idProduct}=="60c6", ENV{ID_MM_DEVICE_IGNORE}="1", MODE="0666"
+
+# Kernel driver device node (if present)
+KERNEL=="chaoskey*", MODE="0666"

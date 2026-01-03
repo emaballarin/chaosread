@@ -22,6 +22,19 @@ ChaosKey devices offer three entpoints:
  3. "firmware". Reading from this endpoint will supply the firmware
     image loaded in the device. This is endpoint 0x87.
 
+### Unprivileged Access ###
+
+By default, accessing the ChaosKey device requires root privileges. To allow
+unprivileged users to access the device, install the included udev rules:
+
+```
+sudo cp 99-chaoskey.rules /etc/udev/rules.d/
+sudo udevadm control --reload-rules
+sudo udevadm trigger
+```
+
+Then unplug and replug the ChaosKey device.
+
 ### ChaosRead License ###
 
 ChaosRead is released under the GNU General Public License, as
